@@ -241,7 +241,7 @@ def cleanAuthorForPath(author):
     return cleaned
 
 def cleanTitleForPath(title):
-    """
+    r"""
     Clean title for use in file/folder paths.
     - Removes invalid path characters (Windows: < > : " / \ | ? *)
     - Removes control characters (tabs, newlines)

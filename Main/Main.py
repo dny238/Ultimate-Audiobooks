@@ -4,7 +4,6 @@ import Util
 import Processing
 import FileMerger
 import BookStatus
-import PlexIntegration
 import logging as log
 from pathlib import Path
 import sys
@@ -40,7 +39,11 @@ def main(args):
 
     # Trigger Plex library refresh if enabled
     if settings.plexRefresh:
-        PlexIntegration.refresh_library()
+        try:
+            import PlexIntegration
+            PlexIntegration.refresh_library()
+        except ImportError:
+            log.warning("PlexIntegration module not found - skipping Plex refresh")
 
 
 def processBooks():

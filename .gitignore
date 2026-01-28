@@ -6,3 +6,25 @@ venv/
 *.code-workspace
 settings.json
 .vscode/
+
+# Logs
+*.log
+
+# Cache files
+.url_cache.json
+
+# Temp files
+%TEMP%*
+nul
+
+# Local scripts/batch files
+*.bat
+*.ps1
+
+# Claude settings
+.claude/
+
+# Local test files
+check_corrupt.py
+find_missing*.py
+cleanup_log.txt

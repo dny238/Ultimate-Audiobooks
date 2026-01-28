@@ -2429,19 +2429,19 @@ def cleanMetadata(track, md):
         track['title'] = md.title
         track['album'] = md.title  # Also write to album for getTitle() compatibility
         track['date'] = md.publishYear
-        # Authors - write to artist, albumartist (semicolon-separated for Plex/Audiobookshelf)
+        # Authors - use primary author only, strip credentials for better Plex compatibility
         if hasattr(md, 'authors') and md.authors:
-            authors_str = '; '.join(md.authors)
+            authors_str = cleanAuthorForPath(md.authors[0])  # Use first author, strip credentials
             track['artist'] = authors_str
             track['albumartist'] = authors_str
         else:
-            # Convert comma-separated authors to semicolons
-            authors_str = md.author.replace(', ', '; ') if md.author else md.author
+            # Use primary author, strip credentials
+            authors_str = cleanAuthorForPath(md.author) if md.author else md.author
             track['artist'] = authors_str
             track['albumartist'] = authors_str
-        # Narrator - write to composer (semicolon-separated)
+        # Narrator - use primary narrator only for better Plex compatibility
         if hasattr(md, 'narrators') and md.narrators:
-            track['composer'] = '; '.join(md.narrators)
+            track['composer'] = md.narrators[0]  # Use first narrator only
         elif md.narrator:
             track['composer'] = md.narrator
         # Genres (support multiple)
@@ -2544,21 +2544,21 @@ def cleanMetadata(track, md):
             track['narrator'] = md.narrator
         track['date'] = md.publishYear
         track['description'] = md.summary
-        # Authors (semicolon-separated) - write to author, artist, and albumartist tags
+        # Authors - use primary author only, strip credentials for better Plex compatibility
         if hasattr(md, 'authors') and md.authors:
-            authors_str = '; '.join(md.authors)
+            authors_str = cleanAuthorForPath(md.authors[0])  # Use first author, strip credentials
             track['author'] = authors_str
             track['artist'] = authors_str
             track['albumartist'] = authors_str
         else:
-            # Convert comma-separated authors to semicolons
-            authors_str = md.author.replace(', ', '; ') if md.author else md.author
+            # Use primary author, strip credentials
+            authors_str = cleanAuthorForPath(md.author) if md.author else md.author
             track['author'] = authors_str
             track['artist'] = authors_str
             track['albumartist'] = authors_str
-        # Narrator - also write to composer (semicolon-separated)
+        # Narrator - use primary narrator only for better Plex compatibility
         if hasattr(md, 'narrators') and md.narrators:
-            track['composer'] = '; '.join(md.narrators)
+            track['composer'] = md.narrators[0]  # Use first narrator only
         elif md.narrator:
             track['composer'] = md.narrator
         # Genres (support multiple)
@@ -2630,8 +2630,8 @@ def cleanMetadata(track, md):
 
         track.delete()
         track.add(mutagen.TIT2(encoding = 3, text = md.title))
-        # Narrators (ID3 TPE1) supports multiple
-        tpe1_text = md.narrators if hasattr(md, 'narrators') and md.narrators else md.narrator
+        # Narrator - use primary narrator only for better Plex compatibility
+        tpe1_text = md.narrators[0] if hasattr(md, 'narrators') and md.narrators else md.narrator
         track.add(mutagen.TPE1(encoding = 3, text = tpe1_text))
         track.add(mutagen.TALB(encoding = 3, text = md.series))
         track.add(mutagen.TYER(encoding = 3, text = md.publishYear))
@@ -2639,11 +2639,13 @@ def cleanMetadata(track, md):
         if md.volumeNumber:
             track.add(mutagen.TPOS(encoding = 3, text = md.volumeNumber))
             track.add(mutagen.TXXX(encoding = 3, desc='SERIES_INDEX', text = md.volumeNumber))
-        # Authors (ID3 TCOM) - semicolon-separated for Plex/Audiobookshelf
+        # Authors - use primary author only, strip credentials for better Plex compatibility
         if hasattr(md, 'authors') and md.authors:
-            track.add(mutagen.TCOM(encoding = 3, text = '; '.join(md.authors)))
+            author_clean = cleanAuthorForPath(md.authors[0])  # Use first author, strip credentials
+            track.add(mutagen.TCOM(encoding = 3, text = author_clean))
         else:
-            track.add(mutagen.TCOM(encoding = 3, text = md.author))
+            author_clean = cleanAuthorForPath(md.author) if md.author else md.author
+            track.add(mutagen.TCOM(encoding = 3, text = author_clean))
         # Genres (ID3 TCON) supports multiple values
         if hasattr(md, 'genres') and md.genres:
             track.add(mutagen.TCON(encoding = 3, text = md.genres))
@@ -2697,18 +2699,19 @@ def cleanMetadata(track, md):
         # Note: trkn is for track numbers within an album, not series position
         if md.volumeNumber:
             track['----:com.thovin:series_index'] = mutagen.mp4.MP4FreeForm(str(md.volumeNumber).encode('utf-8'))
-        # Authors (MP4) - semicolon-separated for Plex/Audiobookshelf
+        # Authors - use primary author only, strip credentials for better Plex compatibility
         if hasattr(md, 'authors') and md.authors:
-            track['\xa9aut'] = '; '.join(md.authors)
+            track['\xa9aut'] = cleanAuthorForPath(md.authors[0])  # Use first author, strip credentials
         else:
-            track['\xa9aut'] = md.author
+            # Use primary author, strip credentials
+            track['\xa9aut'] = cleanAuthorForPath(md.author) if md.author else md.author
         # Genres (MP4)
         if hasattr(md, 'genres') and md.genres:
             track['\xa9gen'] = md.genres
         track['\xa9des'] = md.summary
-        # Narrators (MP4) - semicolon-separated for Plex/Audiobookshelf
+        # Narrator - use primary narrator only for better Plex compatibility
         if hasattr(md, 'narrators') and md.narrators:
-            track['\xa9nrt'] = '; '.join(md.narrators)
+            track['\xa9nrt'] = md.narrators[0]  # Use first narrator only
         else:
             track['\xa9nrt'] = md.narrator
         track['----:com.thovin:isbn'] = mutagen.mp4.MP4FreeForm(md.isbn.encode('utf-8'))

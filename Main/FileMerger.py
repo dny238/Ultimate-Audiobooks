@@ -401,9 +401,7 @@ def mergeBook(folderPath, outPath = False, move = False, finalOutputPath = None,
                     log.info(f"  Normalizing albumartist capitalization: '{albumartist_val}' -> '{artist_val}'")
                     savedMetadata['albumartist'] = savedMetadata['artist']
         else:
-            log.error(f"Mutagen returned None for file: {sourceFile}")
-            log.error(f"  File exists: {sourceFile.exists()}")
-            log.error(f"  File size: {sourceFile.stat().st_size if sourceFile.exists() else 'N/A'}")
+            log.debug(f"Source file has no metadata tags: {sourceFile.name}")
     except Exception as e:
         log.error(f"EXCEPTION reading metadata from {sourceFile.name}: {type(e).__name__}: {e}")
         import traceback
@@ -416,7 +414,7 @@ def mergeBook(folderPath, outPath = False, move = False, finalOutputPath = None,
         authorName = folderPath.parent.name if folderPath.parent else None
 
         if authorName and bookName:
-            log.warning(f"No metadata tags found - using folder names: '{authorName}' / '{bookName}'")
+            log.info(f"Source files have no metadata tags - using folder structure for initial metadata (will be updated if fetched from Audible)")
             savedMetadata['artist'] = [authorName]
             savedMetadata['albumartist'] = [authorName]
             savedMetadata['album'] = [bookName]

@@ -7,6 +7,7 @@ import BookStatus
 import logging as log
 from pathlib import Path
 import sys
+import signal
 
 '''
 DEBUG
@@ -37,13 +38,9 @@ def main(args):
     Path(settings.output).mkdir(parents = True, exist_ok = True)
     processBooks()
 
-    # Trigger Plex library refresh if enabled
+    # Plex integration removed
     if settings.plexRefresh:
-        try:
-            import PlexIntegration
-            PlexIntegration.refresh_library()
-        except ImportError:
-            log.warning("PlexIntegration module not found - skipping Plex refresh")
+        log.warning("Plex integration not available in this version")
 
 
 def processBooks():
@@ -113,7 +110,7 @@ if __name__ == "__main__":
                         ])
     else:
         log.basicConfig(level=numeric_level, format=log_format, datefmt=log_datefmt)
-    
+
     log.debug("Arguments parsed successfully")
 
     final_message = ""
@@ -122,6 +119,10 @@ if __name__ == "__main__":
     try:
         main(args)
         final_message = "Processing complete."
+    except KeyboardInterrupt:
+        log.warning("\nProcessing interrupted by user (Ctrl+C)")
+        final_message = "Interrupted."
+        sys.exit(130)  # Standard exit code for Ctrl+C
     except SystemExit as se:
         # Allow graceful pause on explicit exits
         final_message = "Exited."

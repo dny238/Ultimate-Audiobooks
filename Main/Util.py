@@ -711,6 +711,7 @@ class CachedResponse:
         self.status_code = status_code
         self.ok = status_code == 200
         self.encoding = 'utf-8'
+        self.headers = {'content-type': 'text/html; charset=utf-8'}
 
     def json(self):
         return json.loads(self.text)
@@ -1832,19 +1833,16 @@ def fetchMetadata(file, track, autoOnly=False) -> Metadata:
             log.info(f"Auto-fetch found result but confidence too low ({confidence}%), will check if output exists...")
             lowConfidenceMd = autoMd
         elif "rate-limited" in details.lower():
-            # DuckDuckGo blocked requests - try Selenium instead (unless autoOnly mode)
-            if autoOnly:
-                log.info("Requests blocked by DuckDuckGo, deferring (autoOnly mode, skipping Selenium)")
-            else:
-                log.info("Requests blocked by DuckDuckGo, trying Selenium browser...")
-                console_print("Opening Selenium browser (you may need to solve a CAPTCHA if one appears)...")
-                autoMd, confidence, details = tryAutoFetchAudibleSelenium(searchText, md.author, md.title)
-                if autoMd is not None and confidence >= 80:
-                    log.info(f"Auto-accepted (Selenium): '{autoMd.title}' by {autoMd.author} (confidence: {confidence}%)")
-                    return autoMd
-                elif autoMd is not None and confidence > 0:
-                    log.info(f"Auto-fetch (Selenium) found result but confidence too low ({confidence}%), will check if output exists...")
-                    lowConfidenceMd = autoMd
+            # DuckDuckGo blocked requests - try Selenium instead
+            log.info("Requests blocked by DuckDuckGo, trying Selenium browser...")
+            console_print("Opening Selenium browser (you may need to solve a CAPTCHA if one appears)...")
+            autoMd, confidence, details = tryAutoFetchAudibleSelenium(searchText, md.author, md.title)
+            if autoMd is not None and confidence >= 80:
+                log.info(f"Auto-accepted (Selenium): '{autoMd.title}' by {autoMd.author} (confidence: {confidence}%)")
+                return autoMd
+            elif autoMd is not None and confidence > 0:
+                log.info(f"Auto-fetch (Selenium) found result but confidence too low ({confidence}%), will check if output exists...")
+                lowConfidenceMd = autoMd
 
     # If we have a low-confidence result, check if output already exists before prompting
     # If -CV mode, only .m4b counts as existing output

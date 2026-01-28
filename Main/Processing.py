@@ -10,6 +10,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, wait, as
 import math
 import re
 import shutil
+import subprocess
 
 
 
@@ -253,16 +254,39 @@ def processConversions():
             numWorkers = 1
             log.info("Number of workers not specified and unable to retrieve relevant system information. Defaulting to 1 worker.")
 
-    with ProcessPoolExecutor(max_workers=numWorkers) as controller:
+    controller = ProcessPoolExecutor(max_workers=numWorkers)
+    try:
         futures = [controller.submit(processConversion, c, settings) for c in conversions]
 
-        wait(futures)
-
+        # Use a loop with timeout to allow KeyboardInterrupt
+        while futures:
+            done, futures = wait(futures, timeout=1.0, return_when='FIRST_COMPLETED')
+            for future in done:
+                try:
+                    future.result()
+                except Exception as e:
+                    log.error("Error processing conversion: " + str(e))
+    except KeyboardInterrupt:
+        log.warning("\nCtrl+C detected - shutting down conversion workers...")
+        # Cancel pending futures
         for future in futures:
-            try:
-                future.result()
-            except Exception as e:
-                log.error("Error processing conversion: " + str(e))
+            future.cancel()
+        # Kill any running ffmpeg processes immediately
+        try:
+            if sys.platform == 'win32':
+                subprocess.run(['taskkill', '/F', '/IM', 'ffmpeg.exe'], capture_output=True)
+            else:
+                subprocess.run(['pkill', '-9', 'ffmpeg'], capture_output=True)
+        except:
+            pass
+        # Shutdown without waiting
+        controller.shutdown(wait=False, cancel_futures=True)
+        log.info("Conversion shutdown complete.")
+        raise
+    finally:
+        # Only wait for graceful shutdown if not interrupted
+        if not controller._shutdown:
+            controller.shutdown(wait=True)
 
 def processDeferredBooks():
     """
@@ -1002,25 +1026,26 @@ def recursivelyCombineBatch(offset=0):
         executor = ThreadPoolExecutor(max_workers=numWorkers)
         try:
             # Submit all chapter book jobs
-            futures = {executor.submit(processChapterBook, book): book for book in chapterBooks}
+            futures_dict = {executor.submit(processChapterBook, book): book for book in chapterBooks}
+            futures_set = set(futures_dict.keys())
 
-            # Process results as they complete
-            for future in as_completed(futures):
-                current += 1
-                setProgress(current, total)
-                try:
-                    future.result()
-                except Exception as e:
-                    book = futures[future]
-                    log.error(f"Error processing chapter book {book.get('source_path', 'unknown')}: {e}")
+            # Process results as they complete with timeout loop to allow KeyboardInterrupt
+            while futures_set:
+                done, futures_set = wait(futures_set, timeout=1.0, return_when='FIRST_COMPLETED')
+                for future in done:
+                    current += 1
+                    setProgress(current, total)
+                    try:
+                        future.result()
+                    except Exception as e:
+                        book = futures_dict[future]
+                        log.error(f"Error processing chapter book {book.get('source_path', 'unknown')}: {e}")
         except KeyboardInterrupt:
             log.warning("\nCtrl+C detected - shutting down workers...")
             # Cancel pending futures
-            for future in futures:
+            for future in futures_dict.keys():
                 future.cancel()
-            executor.shutdown(wait=False, cancel_futures=True)
-            # Kill any running ffmpeg processes
-            import subprocess
+            # Kill any running ffmpeg processes immediately
             try:
                 if sys.platform == 'win32':
                     subprocess.run(['taskkill', '/F', '/IM', 'ffmpeg.exe'], capture_output=True)
@@ -1028,10 +1053,14 @@ def recursivelyCombineBatch(offset=0):
                     subprocess.run(['pkill', '-9', 'ffmpeg'], capture_output=True)
             except:
                 pass
+            # Shutdown without waiting
+            executor.shutdown(wait=False, cancel_futures=True)
             log.info("Shutdown complete.")
             raise
         finally:
-            executor.shutdown(wait=True)
+            # Only wait for graceful shutdown if not interrupted
+            if not executor._shutdown:
+                executor.shutdown(wait=True)
 
     # Process any queued conversions from Phase 1
     if len(conversions) > 0:
